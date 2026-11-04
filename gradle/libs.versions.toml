@@ -1,0 +1,11 @@
+# Standalone build only (Gradle reads gradle/libs.versions.toml as `libs` on its own); keep the versions equal to
+# android/gradle/libs.versions.toml.
+[versions]
+kotlin = "2.2.10"
+junit = "4.13.2"
+
+[libraries]
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

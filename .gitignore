@@ -1,0 +1,7 @@
+# Build output of the standalone Gradle build (settings.gradle.kts) and of :cl1 inside the app's build.
+.gradle/
+.kotlin/
+build/
+kotlin/build/
+__pycache__/
+node_modules/

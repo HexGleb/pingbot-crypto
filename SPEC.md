@@ -51,8 +51,8 @@ These fields sit inside the encrypted, authenticated JSON, so the relay can neit
 | Field | What it stops |
 |---|---|
 | `d` (`down` laptop to phone, `up` phone to laptop) | Reflection: an envelope sent back the other way is refused. |
-| `ts` (Unix seconds) | Old envelopes: each side accepts only a window around its own clock and the relay's (about 24 h back, 10 min ahead). |
-| `n` (12 random bytes) | Replays: the bridge accepts each nonce once (kept 48 h). The app keeps a digest of every envelope it opened (25 h) and drops a repeat. |
+| `ts` (Unix seconds) | Old envelopes: each side accepts only a window around its own clock and the relay's, 10 min ahead and back 24 h (the bridge) or 169 h (the app: the relay's 7-day cache and an hour). |
+| `n` (12 random bytes) | Replays: the bridge accepts each nonce once (kept 48 h). The app keeps a digest of every envelope it opened for longer than its window (about 170 h) and drops a repeat. |
 
 ## 4. Pairing, re-pairing and unpairing
 

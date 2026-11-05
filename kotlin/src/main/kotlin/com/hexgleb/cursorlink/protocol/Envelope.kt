@@ -68,15 +68,19 @@ object Envelope {
         // carries padding bits) fails instead of decoding to the same bytes.
         if (b64u(blob) != body) throw OpenError("bad base64")
         if (blob.size < 16 + 16 + 32) throw OpenError("too short")
-        val iv = blob.copyOfRange(0, 16)
-        val ct = blob.copyOfRange(16, blob.size - 32)
-        val tag = blob.copyOfRange(blob.size - 32, blob.size)
-        val expected = hmac(macKey(key), kid.toByteArray(Charsets.US_ASCII) + iv + ct)
-        if (!MessageDigest.isEqual(tag, expected)) throw OpenError("bad tag")
+        val keys = derived(kid, key)
+        // The tag covers kid ‖ iv ‖ ct: the blob up to its last 32 bytes, read in place.
+        val expected = macs.get().run {
+            init(keys.mac)
+            update(kid.toByteArray(Charsets.US_ASCII))
+            update(blob, 0, blob.size - 32)
+            doFinal()
+        }
+        if (!MessageDigest.isEqual(blob.copyOfRange(blob.size - 32, blob.size), expected)) throw OpenError("bad tag")
         val plain = try {
-            Cipher.getInstance("AES/CBC/PKCS5Padding").run {
-                init(Cipher.DECRYPT_MODE, SecretKeySpec(encKey(key), "AES"), IvParameterSpec(iv))
-                doFinal(ct)
+            ciphers.get().run {
+                init(Cipher.DECRYPT_MODE, keys.enc, IvParameterSpec(blob, 0, 16))
+                doFinal(blob, 16, blob.size - 48)
             }
         } catch (e: Exception) {
             throw OpenError("bad padding")
@@ -89,14 +93,49 @@ object Envelope {
         val data = deflate(json.toByteArray(Charsets.UTF_8))
         if (key == null) return CL0 + b64u(data)
         val kid = keyId(key)
+        val keys = derived(kid, key)
         val nonce = iv ?: ByteArray(16).also { random.nextBytes(it) }
-        val ct = Cipher.getInstance("AES/CBC/PKCS5Padding").run {
-            init(Cipher.ENCRYPT_MODE, SecretKeySpec(encKey(key), "AES"), IvParameterSpec(nonce))
+        val ct = ciphers.get().run {
+            init(Cipher.ENCRYPT_MODE, keys.enc, IvParameterSpec(nonce))
             doFinal(data)
         }
-        val tag = hmac(macKey(key), kid.toByteArray(Charsets.US_ASCII) + nonce + ct)
+        val tag = macs.get().run {
+            init(keys.mac)
+            update(kid.toByteArray(Charsets.US_ASCII))
+            update(nonce)
+            doFinal(ct)
+        }
         return CL1 + kid + "." + b64u(nonce + ct + tag)
     }
+
+    /**
+     * The two keys a paired key derives ([encKey], [macKey]), kept per key id so an open or a seal
+     * doesn't derive them again (two HMACs each time). [raw] is compared first: a different key
+     * under the same id derives its own.
+     */
+    private class Derived(val raw: ByteArray, val enc: SecretKeySpec, val mac: SecretKeySpec)
+
+    private const val MAX_DERIVED = 16
+
+    private val derivedKeys = object : LinkedHashMap<String, Derived>(MAX_DERIVED, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Derived>?): Boolean = size > MAX_DERIVED
+    }
+
+    private fun derived(kid: String, key: ByteArray): Derived {
+        synchronized(derivedKeys) { derivedKeys[kid] }?.let { if (MessageDigest.isEqual(it.raw, key)) return it }
+        val d = Derived(key.copyOf(), SecretKeySpec(encKey(key), "AES"), SecretKeySpec(macKey(key), "HmacSHA256"))
+        synchronized(derivedKeys) { derivedKeys[kid] = d }
+        return d
+    }
+
+    /** Drops the derived keys kept for [open] and [seal] (memory trimmed, keys retired); they are derived again when next used. */
+    fun forgetDerivedKeys() {
+        synchronized(derivedKeys) { derivedKeys.clear() }
+    }
+
+    /** One Mac and one Cipher per thread: `getInstance` looks the provider up each time; `init` resets them for each use. */
+    private val macs: ThreadLocal<Mac> = ThreadLocal.withInitial { Mac.getInstance("HmacSHA256") }
+    private val ciphers: ThreadLocal<Cipher> = ThreadLocal.withInitial { Cipher.getInstance("AES/CBC/PKCS5Padding") }
 
     /** 12 random bytes as 24 hex characters: the per-message nonce `n`. */
     fun nonce(): String = hex(ByteArray(12).also { random.nextBytes(it) })
@@ -111,10 +150,21 @@ object Envelope {
         return Base64.getUrlDecoder().decode(clean)
     }
 
-    fun hex(b: ByteArray): String = b.joinToString("") { "%02x".format(it.toInt() and 0xff) }
+    /** Lowercase hex, from a table (no `String.format` per byte). */
+    fun hex(b: ByteArray): String {
+        val out = CharArray(b.size * 2)
+        for (i in b.indices) {
+            val v = b[i].toInt() and 0xff
+            out[2 * i] = HEX[v ushr 4]
+            out[2 * i + 1] = HEX[v and 0xf]
+        }
+        return String(out)
+    }
+
+    private val HEX = "0123456789abcdef".toCharArray()
 
     private fun hmac(key: ByteArray, data: ByteArray): ByteArray =
-        Mac.getInstance("HmacSHA256").run {
+        macs.get().run {
             init(SecretKeySpec(key, "HmacSHA256"))
             doFinal(data)
         }

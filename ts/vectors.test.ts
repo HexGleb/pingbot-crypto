@@ -59,3 +59,20 @@ test('rejects are refused', () => {
   assert.ok(rejects.length >= 4);
   for (const name of rejects) assert.throws(() => openCl1(get(name), keyFor), Error, name);
 });
+
+test('base64url is strict: only the canonical unpadded text decodes', () => {
+  assert.deepEqual(unb64u('AQID_-8'), Buffer.from([1, 2, 3, 0xff, 0xef]));
+  assert.equal(unb64u('').length, 0);
+  for (const bad of ['AQID_-8=', 'AQID/+8', 'AQ ID', 'A', 'AQID_-9', 'AQ\nID', 'AQID_-8.', 'AR']) {
+    assert.throws(() => unb64u(bad), /bad base64/, JSON.stringify(bad));
+  }
+});
+
+test('subkeys kept per key id are only reused for the same key', () => {
+  const env = get('down.cl1');
+  assert.equal(openCl1(env, keyFor).json, get('down.plain'));
+  const other = Buffer.from(KEY);
+  other[0] ^= 1;
+  assert.throws(() => openCl1(env, () => other), Error);
+  assert.equal(openCl1(env, keyFor).json, get('down.plain'));
+});

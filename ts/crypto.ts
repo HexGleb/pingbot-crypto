@@ -7,13 +7,17 @@ import * as zlib from 'node:zlib';
 
 const MAX_INFLATED = 1024 * 1024;
 
-export const b64u = (b: Buffer): string => b.toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+/** base64url without padding (Node's own encoder). */
+export const b64u = (b: Buffer): string => b.toString('base64url');
 
+/**
+ * Strict base64url: only the canonical, unpadded encoding. Node's decoder skips what it can't read and takes
+ * padding, `+` and `/`, so the answer is encoded again and must give back the input: a stray character, padding,
+ * the standard alphabet, a dangling last character or unused trailing bits that aren't zero all fail.
+ */
 export function unb64u(s: string): Buffer {
-  if (!/^[A-Za-z0-9_-]*$/.test(s) || s.length % 4 === 1) throw new Error('bad base64');
-  const b = Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
-  // Strict: unused trailing bits must be zero, so a flipped last character never decodes the same.
-  if (b64u(b) !== s) throw new Error('bad base64');
+  const b = Buffer.from(s, 'base64url');
+  if (b.toString('base64url') !== s) throw new Error('bad base64');
   return b;
 }
 
@@ -23,6 +27,20 @@ const hmac = (key: Buffer, data: Buffer): Buffer => crypto.createHmac('sha256', 
 
 export function subKeys(key: Buffer): { enc: Buffer; mac: Buffer } {
   return { enc: hmac(key, Buffer.from('cursorlink enc v1', 'ascii')), mac: hmac(key, Buffer.from('cursorlink mac v1', 'ascii')) };
+}
+
+/** [subKeys] kept per key id for seal and open (two HMACs less per message); a different key under the same id derives its own. */
+const derived = new Map<string, { key: Buffer; enc: Buffer; mac: Buffer }>();
+const MAX_DERIVED = 16;
+
+function keysFor(kid: string, key: Buffer): { enc: Buffer; mac: Buffer } {
+  const hit = derived.get(kid);
+  if (hit && hit.key.equals(key)) return hit;
+  const d = { key: Buffer.from(key), ...subKeys(key) };
+  derived.delete(kid);
+  derived.set(kid, d);
+  if (derived.size > MAX_DERIVED) derived.delete(derived.keys().next().value as string);
+  return d;
 }
 
 export const deflate = (b: Buffer): Buffer => zlib.deflateRawSync(b, { level: 9 });
@@ -35,8 +53,8 @@ export function inflate(b: Buffer): Buffer {
 export function seal(json: string, key?: Buffer, iv?: Buffer): string {
   const data = deflate(Buffer.from(json, 'utf8'));
   if (!key) return 'CL0.' + b64u(data);
-  const { enc, mac } = subKeys(key);
   const kid = kidOf(key);
+  const { enc, mac } = keysFor(kid, key);
   const v = iv ?? crypto.randomBytes(16);
   const c = crypto.createCipheriv('aes-256-cbc', enc, v);
   const ct = Buffer.concat([c.update(data), c.final()]);
@@ -59,7 +77,7 @@ export function openCl1(text: string, keyFor: (kid: string) => Buffer | null): {
   const iv = blob.subarray(0, 16);
   const ct = blob.subarray(16, blob.length - 32);
   const tag = blob.subarray(blob.length - 32);
-  const { enc, mac } = subKeys(key);
+  const { enc, mac } = keysFor(kid, key);
   const want = hmac(mac, Buffer.concat([Buffer.from(kid, 'ascii'), iv, ct]));
   if (!crypto.timingSafeEqual(want, tag)) throw new EnvelopeError('bad signature');
   let plain: Buffer;

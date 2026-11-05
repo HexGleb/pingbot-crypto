@@ -49,6 +49,24 @@ class EnvelopeVectorsTest {
         assertEquals(plain, Envelope.open(a, ::keys))
     }
 
+    /** K20: the derived keys are kept per key id, but only for the key they came from. */
+    @Test
+    fun anotherKeyUnderTheSameIdDerivesItsOwn() {
+        val env = v.getValue("down.cl1")
+        assertEquals(v["down.plain"], Envelope.open(env, ::keys))
+        val other = key.copyOf().also { it[0] = (it[0].toInt() xor 1).toByte() }
+        try {
+            Envelope.open(env) { other }
+            fail("opened under another key")
+        } catch (e: Envelope.OpenError) {
+            assertEquals("bad tag", e.reason)
+        }
+        assertEquals("the right key still opens it", v["down.plain"], Envelope.open(env, ::keys))
+        Envelope.forgetDerivedKeys()
+        assertEquals(v["down.plain"], Envelope.open(env, ::keys))
+        assertEquals(v["down.cl1"], Envelope.seal(v.getValue("down.plain"), key, bytes(v.getValue("down.iv"))))
+    }
+
     @Test
     fun rejectsAreRefused() {
         val rejects = v.filterKeys { it.startsWith("reject.") }

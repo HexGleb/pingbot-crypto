@@ -19,8 +19,8 @@ the relay, and anyone between you and it, only ever carries sealed envelopes it 
 Two sub-keys come from the key, so the same bytes are never used for two jobs:
 
 ```
-encKey = HMAC-SHA256(key, ascii("cursorlink enc v1"))
-macKey = HMAC-SHA256(key, ascii("cursorlink mac v1"))
+encKey = HMAC-SHA256(key, ascii("pingbot enc v1"))
+macKey = HMAC-SHA256(key, ascii("pingbot mac v1"))
 ```
 
 ## 2. The envelope

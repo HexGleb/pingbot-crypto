@@ -21,9 +21,6 @@ The PingBot app and the PingBot bridge are both built from exactly this code.
 | `ts/` | `crypto.ts`: the same in TypeScript (Node built-ins only) | the laptop bridge |
 | `python/` | `cl_crypto.py`, a short independent reference, and `check_vectors.py` | the bridge's tests |
 
-The code still says CursorLink, PingBot's earlier name (package `com.hexgleb.cursorlink`, the `cursorlink enc v1`
-labels). That is expected.
-
 ## Check it
 
 From this folder:
@@ -37,7 +34,7 @@ gradle :kotlin:test                    # Gradle 9, any JDK 17 or later
 ## How releases match
 
 Each tag here (`cl1-v1.0.0`, ...) lists the app and bridge versions built from it. The app compiles `kotlin/`
-and `android/src/` as they are here. The bridge bundles `ts/crypto.ts` into `cursorlink.js`, which ships
+and `android/src/` as they are here. The bridge bundles `ts/crypto.ts` into `pingbot.js`, which ships
 unminified with its source map, so you can compare the two directly.
 
 ## Licence and reports

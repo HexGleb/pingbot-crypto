@@ -1,4 +1,4 @@
-package com.hexgleb.cursorlink.protocol
+package com.hexgleb.pingbot.protocol
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

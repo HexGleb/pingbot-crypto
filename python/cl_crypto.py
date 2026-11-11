@@ -1,4 +1,4 @@
-"""CursorLink envelope reference (CL0 / CL1). Needs: pip install cryptography."""
+"""PingBot envelope reference (CL0 / CL1). Needs: pip install cryptography."""
 import base64, hashlib, hmac, json, os, time, zlib
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
@@ -8,8 +8,8 @@ def b64u(b): return base64.urlsafe_b64encode(b).rstrip(b'=').decode()
 def unb64u(s): return base64.urlsafe_b64decode(s + '=' * (-len(s) % 4))
 def kid_of(key): return hashlib.sha256(key).digest()[:4].hex()
 def subkeys(key):
-    return (hmac.new(key, b'cursorlink enc v1', hashlib.sha256).digest(),
-            hmac.new(key, b'cursorlink mac v1', hashlib.sha256).digest())
+    return (hmac.new(key, b'pingbot enc v1', hashlib.sha256).digest(),
+            hmac.new(key, b'pingbot mac v1', hashlib.sha256).digest())
 def deflate(b):
     c = zlib.compressobj(9, zlib.DEFLATED, -15); return c.compress(b) + c.flush()
 def inflate(b): return zlib.decompress(b, -15)

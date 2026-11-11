@@ -1,4 +1,4 @@
-package com.hexgleb.cursorlink.data
+package com.hexgleb.pingbot.data
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
@@ -16,7 +16,7 @@ import javax.crypto.spec.GCMParameterSpec
  * are stored. Never logs what it encrypts.
  */
 class TokenCrypto {
-    private val alias = "cursorlink.token.v1"
+    private val alias = "pingbot.token.v1"
 
     /** A Keystore failure that may pass (busy, locked, provider hiccup): try again later, don't forget the secret. */
     class TransientException(cause: Throwable) : Exception(cause.javaClass.simpleName, cause)

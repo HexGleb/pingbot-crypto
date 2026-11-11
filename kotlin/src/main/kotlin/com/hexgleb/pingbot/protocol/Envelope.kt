@@ -1,4 +1,4 @@
-package com.hexgleb.cursorlink.protocol
+package com.hexgleb.pingbot.protocol
 
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
@@ -27,8 +27,8 @@ object Envelope {
     /** Inflated payloads larger than this are refused. */
     private const val MAX_INFLATED = 1 shl 20
 
-    private val ENC_LABEL = "cursorlink enc v1".toByteArray(Charsets.US_ASCII)
-    private val MAC_LABEL = "cursorlink mac v1".toByteArray(Charsets.US_ASCII)
+    private val ENC_LABEL = "pingbot enc v1".toByteArray(Charsets.US_ASCII)
+    private val MAC_LABEL = "pingbot mac v1".toByteArray(Charsets.US_ASCII)
     private val random = SecureRandom()
 
     /** Why an envelope couldn't be opened. Safe to log: no key material or contents. */

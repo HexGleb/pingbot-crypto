@@ -26,7 +26,7 @@ export const kidOf = (key: Buffer): string => crypto.createHash('sha256').update
 const hmac = (key: Buffer, data: Buffer): Buffer => crypto.createHmac('sha256', key).update(data).digest();
 
 export function subKeys(key: Buffer): { enc: Buffer; mac: Buffer } {
-  return { enc: hmac(key, Buffer.from('cursorlink enc v1', 'ascii')), mac: hmac(key, Buffer.from('cursorlink mac v1', 'ascii')) };
+  return { enc: hmac(key, Buffer.from('pingbot enc v1', 'ascii')), mac: hmac(key, Buffer.from('pingbot mac v1', 'ascii')) };
 }
 
 /** [subKeys] kept per key id for seal and open (two HMACs less per message); a different key under the same id derives its own. */
